@@ -15,14 +15,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       id: virtualenv-cache
       with:
         path: |
           .venv
-        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/test.txt') }}
+        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/base.txt') }}
     - name: Set up Python ${{ env.PYTHON_VERSION }}
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: ${{ env.PYTHON_VERSION }}
     - name: Setup virtual environment (no cache hit)
@@ -37,12 +37,12 @@ jobs:
     needs: setup
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       id: virtualenv-cache
       with:
         path: |
           .venv
-        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/test.txt') }}
+        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/base.txt') }}
     - name: Lint
       run: |
         source .venv/bin/activate
@@ -60,12 +60,12 @@ jobs:
     needs: [setup, lint]
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       id: virtualenv-cache
       with:
         path: |
           .venv
-        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/test.txt') }}
+        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/base.txt') }}
     - name: Run core tests
       run: |
         source .venv/bin/activate
@@ -83,7 +83,7 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - if: github.ref != 'refs/heads/main'
-      uses: dorny/paths-filter@v2
+      uses: dorny/paths-filter@v3
       id: changes
       with:
         filters: |
@@ -101,14 +101,20 @@ jobs:
     needs: [setup, lint]
     steps:
     - uses: actions/checkout@v4
-    - uses: actions/cache@v3
+    - uses: actions/cache@v4
       id: virtualenv-cache
       with:
         path: |
           .venv
-        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/test.txt') }}
+        key: ci-venv-${{ env.PIPELINE_FAMILY }}-${{ hashFiles('requirements/base.txt') }}
     - name: Test Dockerfile
       run: |
         source .venv/bin/activate
         make docker-build
         make docker-test
+    - name: Scan image
+      uses: anchore/scan-action@v3
+      with:
+        image: "pipeline-family-${{ env.PIPELINE_FAMILY }}-dev"
+        # NOTE(robinson) - revert this to medium when we bump libreoffice
+        severity-cutoff: high
